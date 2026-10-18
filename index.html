@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>恐怖形質の進化シミュレーション</title>
+<title>恐怖形質の進化シミュレーション v4.5g</title>
 <style>
   body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f7f7f7;color:#222}
   .wrap{max-width:1450px;margin:0 auto;padding:16px}
@@ -26,7 +26,7 @@
 </head>
 <body>
 <div class="wrap">
-  <h1>恐怖形質の進化：形質別適応度集計版シミュレーション v4.5f</h1>
+  <h1>恐怖形質の進化シミュレーション v4.5g</h1>
 
   <div class="controls">
     <div class="control"><label>グリッド幅</label><input id="gridW" type="number" value="100" min="20" max="300"></div>
@@ -76,7 +76,7 @@
     <div class="panel">
       <canvas id="world" width="720" height="720"></canvas>
       <div class="legend">
-        <span>恐怖値: 0（灰）→ 10（赤）</span>
+        <span>恐怖値: 0（青）→ 10（赤）</span>
         <span><span class="dot" style="background:#111"></span>捕食者</span>
         <span><span class="dot" style="background:#2ca02c"></span>食糧領域</span>
       </div>
@@ -115,6 +115,12 @@
   const rnd=n=>Math.floor(Math.random()*n);
   const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
   const mdist=(a,b)=>Math.abs(a.x-b.x)+Math.abs(a.y-b.y);
+
+  function fearColor(f){
+    // Hue series: fear 0 = blue (220°), fear 10 = red (0°).
+    const hue = 220 * (1 - f/10);
+    return `hsl(${hue}, 78%, 50%)`;
+  }
 
   function P(){
     return {
@@ -444,11 +450,7 @@
 
     for(const a of prey){
       {
-      const t=a.fear/10;
-      const r=Math.round(127 + (214-127)*t);
-      const g=Math.round(127 + (39-127)*t);
-      const b=Math.round(127 + (40-127)*t);
-      wctx.fillStyle=`rgb(${r},${g},${b})`;
+      wctx.fillStyle=fearColor(a.fear);
       }
       const r=Math.max(1.5,Math.min(sx,sy)*0.32);
       wctx.beginPath();wctx.arc((a.x+0.5)*sx,(a.y+0.5)*sy,r,0,Math.PI*2);wctx.fill();
@@ -517,11 +519,7 @@
 
     for(let i=0;i<=10;i++){
       const h=(latest[i]/maxC)*histH;
-      const t=i/10;
-      const r=Math.round(127 + (214-127)*t);
-      const g=Math.round(127 + (39-127)*t);
-      const b=Math.round(127 + (40-127)*t);
-      cctx.fillStyle=`rgb(${r},${g},${b})`;
+      cctx.fillStyle=fearColor(i);
       cctx.fillRect(pad.l+i*barW+2,histTop+histH-h,Math.max(1,barW-4),h);
       cctx.fillStyle="#333";
       cctx.fillText(String(i),pad.l+i*barW+barW*0.4,histTop+histH+15);

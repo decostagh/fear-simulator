@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>恐怖形質の進化シミュレーション</title>
+<style>
+  body{margin:0;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f7f7f7;color:#222}
+  .wrap{max-width:1450px;margin:0 auto;padding:16px}
+  h1{font-size:22px;margin:0 0 12px}
+  .controls{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:8px 12px;background:white;padding:12px;border:1px solid #ddd;border-radius:10px;margin-bottom:12px}
+  .control{display:flex;flex-direction:column;gap:4px;font-size:12px}
+  .control input{width:100%;box-sizing:border-box;padding:5px}
+  .buttons{display:flex;gap:8px;align-items:end}
+  button{padding:8px 14px;border:1px solid #bbb;border-radius:8px;background:white;cursor:pointer}
+  button:hover{background:#f0f0f0}
+  .main{display:grid;grid-template-columns:minmax(520px,1.45fr) minmax(390px,1fr);gap:12px}
+  .panel{background:white;border:1px solid #ddd;border-radius:10px;padding:10px}
+  canvas{width:100%;height:auto;display:block;background:#fff}
+  .stats{display:grid;grid-template-columns:repeat(2,1fr);gap:6px 10px;margin-top:8px;font-size:13px}
+  .legend{display:flex;flex-wrap:wrap;gap:10px;font-size:12px;margin-top:8px}
+  .dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:4px}
+  .note{font-size:12px;color:#666;margin-top:8px;line-height:1.5}
+  @media(max-width:900px){.main{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>恐怖形質の進化：形質別適応度集計版シミュレーション v4.5f</h1>
+
+  <div class="controls">
+    <div class="control"><label>グリッド幅</label><input id="gridW" type="number" value="100" min="20" max="300"></div>
+    <div class="control"><label>グリッド高さ</label><input id="gridH" type="number" value="100" min="20" max="300"></div>
+    <div class="control"><label>初期生体数</label><input id="nPrey" type="number" value="180" min="10" max="2000"></div>
+    <div class="control"><label>初期捕食者数</label><input id="nPred" type="number" value="36" min="1" max="500"></div>
+
+    <div class="control"><label>食糧領域数</label><input id="nFood" type="number" value="6" min="1" max="30"></div>
+    <div class="control"><label>食糧領域半径</label><input id="foodR" type="number" value="5" min="1" max="20"></div>
+    <div class="control"><label>食糧最大量/領域</label><input id="foodMax" type="number" value="180" min="10" max="5000"></div>
+    <div class="control"><label>食糧再生/step</label><input id="foodRegen" type="number" value="2" min="0" max="100" step="0.1"></div>
+
+    <div class="control"><label>生体 満腹→繁殖 閾値</label><input id="preyMateThreshold" type="number" value="55" min="0" max="500"></div>
+    <div class="control"><label>生体 餓死step</label><input id="preyStarve" type="number" value="180" min="10" max="2000"></div>
+    <div class="control"><label>生体 平均寿命（内部tick）</label><input id="preyLife" type="number" value="1200" min="100" max="10000"></div>
+    <div class="control"><label>生体 配偶探索半径</label><input id="preyMateVision" type="number" value="8" min="1" max="50"></div>
+    <div class="control"><label>平常時 最大探索半径（恐怖0）</label><input id="exploreMax" type="number" value="20" min="2" max="50"></div>
+    <div class="control"><label>平常時 最小探索半径（恐怖10）</label><input id="exploreMin" type="number" value="5" min="1" max="30"></div>
+
+    <div class="control"><label>捕食者 満腹→繁殖 閾値</label><input id="predMateThreshold" type="number" value="65" min="0" max="500"></div>
+    <div class="control"><label>捕食者 餓死step</label><input id="predStarve" type="number" value="180" min="10" max="2000"></div>
+    <div class="control"><label>捕食者 平均寿命（内部tick）</label><input id="predLife" type="number" value="1400" min="100" max="10000"></div>
+    <div class="control"><label>捕食者 索敵半径</label><input id="predVision" type="number" value="5" min="1" max="30"></div>
+    <div class="control"><label>捕食者 配偶探索半径</label><input id="predMateVision" type="number" value="8" min="1" max="50"></div>
+    <div class="control"><label>追跡速度</label><input id="chaseSpeed" type="number" value="2" min="1" max="5"></div>
+    <div class="control"><label>最大追跡step</label><input id="maxChase" type="number" value="30" min="1" max="500"></div>
+    <div class="control"><label>見失い捜索step</label><input id="searchMemory" type="number" value="12" min="0" max="200"></div>
+
+    <div class="control"><label>生体繁殖クールダウン</label><input id="preyCooldown" type="number" value="35" min="1" max="1000"></div>
+    <div class="control"><label>捕食者繁殖クールダウン</label><input id="predCooldown" type="number" value="70" min="1" max="1000"></div>
+    <div class="control"><label>生体繁殖確率</label><input id="preyBirthP" type="number" value="0.30" min="0" max="1" step="0.01"></div>
+    <div class="control"><label>恐怖値 ±1変異確率</label><input id="mutationP" type="number" value="0.10" min="0" max="1" step="0.01"></div>
+    <div class="control"><label>捕食者繁殖確率</label><input id="predBirthP" type="number" value="0.25" min="0" max="1" step="0.01"></div>
+
+    <div class="control"><label>1 stepあたり内部tick</label><input id="ticksPerStep" type="number" value="4" min="1" max="20"></div>
+    <div class="control"><label>率グラフ Y軸最大</label><input id="rateYMax" type="number" value="15" min="0.5" max="100" step="0.5"></div>
+    <div class="control"><label>1フレームあたりstep</label><input id="stepsPerFrame" type="number" value="1" min="1" max="50"></div>
+
+    <div class="buttons">
+      <button id="startBtn">開始</button>
+      <button id="pauseBtn">停止</button>
+      <button id="resetBtn">リセット</button>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="panel">
+      <canvas id="world" width="720" height="720"></canvas>
+      <div class="legend">
+        <span>恐怖値: 0（灰）→ 10（赤）</span>
+        <span><span class="dot" style="background:#111"></span>捕食者</span>
+        <span><span class="dot" style="background:#2ca02c"></span>食糧領域</span>
+      </div>
+      <div class="stats" id="stats"></div>
+    </div>
+
+    <div class="panel">
+      <canvas id="chart" width="650" height="500"></canvas>
+      <canvas id="traitChart" width="650" height="560" style="margin-top:12px"></canvas>
+      <div class="note">
+        生体：恐怖反応が最優先。恐怖0は捕食者を検出しても逃走しません。危険がなければ、空腹時は餌を探し、満腹時は異性を探します。<br>
+        捕食者：空腹時は獲物を探して追跡し、満腹時は異性を探します。見失った獲物の最終位置は一定期間記憶します。<br>
+        v4.5では平常時の探索範囲を恐怖値に連動させています。恐怖0のホームレンジ半径は既定20、恐怖10は既定5で、その間は線形補間です。空腹時の採餌と捕食者からの逃走ではこの制約を解除します。満腹時にホームレンジ外にいる場合は出生地へ戻ります。形質別の繁殖・死亡率集計と捕食者初期値36は維持しています。</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const world=document.getElementById("world"), wctx=world.getContext("2d");
+  const chart=document.getElementById("chart"), cctx=chart.getContext("2d");
+  const traitChart=document.getElementById("traitChart"), tctx=traitChart.getContext("2d");
+  const stats=document.getElementById("stats");
+
+  let running=false, stepCount=0, prey=[], predators=[], foodZones=[], hist=[], nextId=1;
+  let preyDeaths={predation:0,starvation:0,oldAge:0};
+  let predDeaths={starvation:0,oldAge:0};
+  // Trait-wise cumulative accounting.
+  let traitExposure=Array(11).fill(0);      // individual-ticks at risk
+  let traitBirthParent=Array(11).fill(0);   // parent participations in successful births
+  let traitBirthChild=Array(11).fill(0);    // newborns by inherited trait
+  let traitDeathPred=Array(11).fill(0);
+  let traitDeathStarve=Array(11).fill(0);
+  let traitDeathOld=Array(11).fill(0);
+
+  const rnd=n=>Math.floor(Math.random()*n);
+  const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+  const mdist=(a,b)=>Math.abs(a.x-b.x)+Math.abs(a.y-b.y);
+
+  function P(){
+    return {
+      W:+gridW.value,H:+gridH.value,NPREY:+nPrey.value,NPRED:+nPred.value,
+      NFOOD:+nFood.value,FOODR:+foodR.value,FOODMAX:+foodMax.value,FOODREGEN:+foodRegen.value,
+      PREYMATE:+preyMateThreshold.value,PREYSTARVE:+preyStarve.value,PREYLIFE:+preyLife.value,PREYMATEVISION:+preyMateVision.value,EXPLOREMAX:+exploreMax.value,EXPLOREMIN:+exploreMin.value,
+      PREDMATE:+predMateThreshold.value,PREDSTARVE:+predStarve.value,PREDLIFE:+predLife.value,PREDVISION:+predVision.value,
+      PREDMATEVISION:+predMateVision.value,CHASESPEED:+chaseSpeed.value,MAXCHASE:+maxChase.value,SEARCHMEM:+searchMemory.value,
+      PREYCD:+preyCooldown.value,PREDCD:+predCooldown.value,PREYBP:+preyBirthP.value,PREDBP:+predBirthP.value,MUTP:+mutationP.value,
+      TPS:+ticksPerStep.value,SPF:+stepsPerFrame.value,RATEYMAX:+rateYMax.value
+    };
+  }
+
+  function sex(){return Math.random()<0.5?0:1}
+  function fearTrait(){return rnd(11)}
+  function inheritFear(father,mother,p){
+    let v=Math.random()<0.5 ? father.fear : mother.fear;
+    if(Math.random()<p.MUTP){
+      v += Math.random()<0.5 ? -1 : 1;
+    }
+    return clamp(v,0,10);
+  }
+  function sampledLife(meanLife){
+    // Uniform ±20% individual variation; not inherited.
+    return Math.max(1, Math.round(meanLife*(0.8+Math.random()*0.4)));
+  }
+  function randPos(p){return {x:rnd(p.W),y:rnd(p.H)}}
+  function moves(a,p){return [[0,0],[1,0],[-1,0],[0,1],[0,-1]].map(([dx,dy])=>({x:clamp(a.x+dx,0,p.W-1),y:clamp(a.y+dy,0,p.H-1)}))}
+  function bestToward(a,t,p){
+    const o=moves(a,p);let best=[],d=Infinity;
+    for(const q of o){const x=mdist(q,t);if(x<d){d=x;best=[q]}else if(x===d)best.push(q)}
+    return best[rnd(best.length)];
+  }
+  function bestAway(a,t,p){
+    const o=moves(a,p);let best=[],d=-1;
+    for(const q of o){const x=mdist(q,t);if(x>d){d=x;best=[q]}else if(x===d)best.push(q)}
+    return best[rnd(best.length)];
+  }
+  function randomMove(a,p){const o=moves(a,p);return o[rnd(o.length)]}
+  function homeRadius(a,p){
+    return Math.max(1, p.EXPLOREMAX-(p.EXPLOREMAX-p.EXPLOREMIN)*(a.fear/10));
+  }
+  function homeDist(a){
+    return Math.hypot(a.x-a.homeX,a.y-a.homeY);
+  }
+  function bestTowardHome(a,p){
+    return bestToward(a,{x:a.homeX,y:a.homeY},p);
+  }
+  function exploratoryMove(a,p){
+    const radius=homeRadius(a,p);
+    const opts=moves(a,p);
+    const valid=opts.filter(q=>Math.hypot(q.x-a.homeX,q.y-a.homeY)<=radius);
+    const pool=valid.length?valid:opts;
+    return pool[rnd(pool.length)];
+  }
+  function mateWithinHomeRange(a,mate,p){
+    if(!mate)return null;
+    return Math.hypot(mate.x-a.homeX,mate.y-a.homeY)<=homeRadius(a,p) ? mate : null;
+  }
+
+
+  function reset(){
+    const p=P();
+    running=false;stepCount=0;prey=[];predators=[];foodZones=[];hist=[];nextId=1;
+    preyDeaths={predation:0,starvation:0,oldAge:0};predDeaths={starvation:0,oldAge:0};
+    traitExposure=Array(11).fill(0);
+    traitBirthParent=Array(11).fill(0);
+    traitBirthChild=Array(11).fill(0);
+    traitDeathPred=Array(11).fill(0);
+    traitDeathStarve=Array(11).fill(0);
+    traitDeathOld=Array(11).fill(0);
+
+    for(let i=0;i<p.NFOOD;i++){const q=randPos(p);foodZones.push({x:q.x,y:q.y,r:p.FOODR,food:p.FOODMAX,max:p.FOODMAX})}
+    for(let i=0;i<p.NPREY;i++){const q=randPos(p);prey.push({
+      id:nextId++,x:q.x,y:q.y,homeX:q.x,homeY:q.y,sex:sex(),fear:fearTrait(),hunger:rnd(Math.max(1,p.PREYMATE+1)),cooldown:rnd(p.PREYCD+1),state:"forage",age:rnd(Math.max(1,Math.floor(p.PREYLIFE*0.4))),lifespan:sampledLife(p.PREYLIFE)
+    })}
+    for(let i=0;i<p.NPRED;i++){const q=randPos(p);predators.push({
+      id:nextId++,x:q.x,y:q.y,sex:sex(),hunger:rnd(Math.max(1,p.PREDMATE+1)),cooldown:rnd(p.PREDCD+1),age:rnd(Math.max(1,Math.floor(p.PREDLIFE*0.4))),lifespan:sampledLife(p.PREDLIFE),
+      state:"hunt",targetId:null,chaseSteps:0,lastSeen:null,searchLeft:0
+    })}
+    record();draw();
+  }
+
+  function inFood(a,z){return Math.hypot(a.x-z.x,a.y-z.y)<=z.r}
+  function nearestFood(a){
+    let b=null,d=Infinity;
+    for(const z of foodZones){if(z.food<=0)continue;const x=mdist(a,z);if(x<d){d=x;b=z}}
+    return b;
+  }
+  function nearestPred(a){
+    let b=null,d=Infinity;
+    for(const pr of predators){const x=mdist(a,pr);if(x<d){d=x;b=pr}}
+    return [b,d];
+  }
+  function nearestMate(agent, pool, radius){
+    const cand=pool.filter(o=>o.id!==agent.id && o.sex!==agent.sex && o.cooldown===0 &&
+      Math.max(Math.abs(o.x-agent.x),Math.abs(o.y-agent.y))<=radius);
+    if(!cand.length)return null;
+    return cand.reduce((b,a)=>mdist(a,agent)<mdist(b,agent)?a:b,cand[0]);
+  }
+  function moveMulti(a,target,p,speed){
+    for(let i=0;i<speed;i++){const q=bestToward(a,target,p);a.x=q.x;a.y=q.y;if(a.x===target.x&&a.y===target.y)break}
+  }
+  function preyById(id){return prey.find(a=>a.id===id)||null}
+
+  function microTick(){
+    const p=P();
+    for(const a of prey) traitExposure[a.fear]++;
+
+    for(const z of foodZones)z.food=Math.min(z.max,z.food+p.FOODREGEN);
+
+    // prey behavior
+    for(const a of prey){
+      a.age++;
+      a.hunger++;
+      if(a.cooldown>0)a.cooldown--;
+
+      const [pr,d]=nearestPred(a);
+      let q;
+
+      if(a.fear>0 && pr && d<=a.fear){
+        // Escape ignores the home-range restriction.
+        a.state="escape";
+        q=bestAway(a,pr,p);
+      } else if(a.hunger>p.PREYMATE){
+        // Hunger motivates long-distance travel.
+        a.state="forage";
+        const z=nearestFood(a);
+        q=z?bestToward(a,z,p):randomMove(a,p);
+      } else {
+        // Satiated animals normally remain within a fear-dependent home range.
+        const radius=homeRadius(a,p);
+        if(homeDist(a)>radius){
+          a.state="returnHome";
+          q=bestTowardHome(a,p);
+        }else{
+          a.state="mate";
+          let mate=nearestMate(a,prey,p.PREYMATEVISION);
+          mate=mateWithinHomeRange(a,mate,p);
+          q=mate?bestToward(a,mate,p):exploratoryMove(a,p);
+        }
+      }
+
+      a.x=q.x;a.y=q.y;
+
+      if(a.state==="forage"){
+        const zones=foodZones.filter(z=>inFood(a,z)&&z.food>0);
+        if(zones.length){
+          const z=zones[rnd(zones.length)];
+          const take=Math.min(1,z.food);
+          z.food-=take;
+          if(take>0)a.hunger=Math.max(0,a.hunger-40);
+        }
+      }
+    }
+
+    {
+      const kept=[];
+      for(const a of prey){
+        if(a.age>=a.lifespan){preyDeaths.oldAge++;traitDeathOld[a.fear]++;continue;}
+        if(a.hunger>p.PREYSTARVE){preyDeaths.starvation++;traitDeathStarve[a.fear]++;continue;}
+        kept.push(a);
+      }
+      prey=kept;
+    }
+
+    // predator behavior
+    for(const pr of predators){
+      pr.age++;
+      pr.hunger++;
+      if(pr.cooldown>0)pr.cooldown--;
+
+      // full -> mate mode, clear chase memory
+      if(pr.hunger<=p.PREDMATE){
+        pr.state="mate";
+        pr.targetId=null;pr.chaseSteps=0;pr.lastSeen=null;pr.searchLeft=0;
+        const mate=nearestMate(pr,predators,p.PREDMATEVISION);
+        const q=mate?bestToward(pr,mate,p):randomMove(pr,p);
+        pr.x=q.x;pr.y=q.y;
+        continue;
+      }
+
+      // hungry -> hunt/chase/search
+      let target=preyById(pr.targetId);
+
+      if(pr.state==="chase" && target){
+        pr.chaseSteps++;
+        pr.lastSeen={x:target.x,y:target.y};
+        const vis=Math.max(Math.abs(target.x-pr.x),Math.abs(target.y-pr.y));
+        if(vis<=p.PREDVISION){
+          moveMulti(pr,target,p,p.CHASESPEED);
+        }else{
+          pr.state="search";pr.targetId=null;pr.searchLeft=p.SEARCHMEM;
+        }
+        if(pr.chaseSteps>=p.MAXCHASE){
+          pr.state="search";pr.targetId=null;pr.searchLeft=p.SEARCHMEM;
+        }
+      }
+
+      if(pr.state==="search"){
+        if(pr.lastSeen && pr.searchLeft>0){
+          moveMulti(pr,pr.lastSeen,p,1);
+          pr.searchLeft--;
+
+          const seen=prey.filter(a=>Math.max(Math.abs(a.x-pr.x),Math.abs(a.y-pr.y))<=p.PREDVISION);
+          if(seen.length){
+            const t=seen.reduce((b,a)=>mdist(a,pr)<mdist(b,pr)?a:b,seen[0]);
+            pr.state="chase";pr.targetId=t.id;pr.chaseSteps=0;pr.lastSeen={x:t.x,y:t.y};
+          } else if(pr.searchLeft<=0 || (pr.x===pr.lastSeen.x && pr.y===pr.lastSeen.y)){
+            pr.state="hunt";pr.lastSeen=null;
+          }
+        }else{
+          pr.state="hunt";pr.lastSeen=null;
+        }
+      }
+
+      if(pr.state==="hunt" || pr.state==="mate"){
+        const seen=prey.filter(a=>Math.max(Math.abs(a.x-pr.x),Math.abs(a.y-pr.y))<=p.PREDVISION);
+        if(seen.length){
+          const t=seen.reduce((b,a)=>mdist(a,pr)<mdist(b,pr)?a:b,seen[0]);
+          pr.state="chase";pr.targetId=t.id;pr.chaseSteps=0;pr.lastSeen={x:t.x,y:t.y};
+          moveMulti(pr,t,p,p.CHASESPEED);
+        }else{
+          pr.state="hunt";
+          const q=randomMove(pr,p);pr.x=q.x;pr.y=q.y;
+        }
+      }
+    }
+
+    // predation
+    const alive=new Set(prey.map(a=>a.id));
+    for(const pr of predators){
+      const victims=prey.filter(a=>alive.has(a.id)&&a.x===pr.x&&a.y===pr.y);
+      if(victims.length){
+        const v=victims[rnd(victims.length)];
+        alive.delete(v.id);
+        preyDeaths.predation++;
+        traitDeathPred[v.fear]++;
+        pr.hunger=0;
+        pr.state="mate";
+        pr.targetId=null;pr.chaseSteps=0;pr.lastSeen=null;pr.searchLeft=0;
+      }
+    }
+    prey=prey.filter(a=>alive.has(a.id));
+
+    {
+      const kept=[];
+      for(const pr of predators){
+        if(pr.age>=pr.lifespan){predDeaths.oldAge++;continue;}
+        if(pr.hunger>p.PREDSTARVE){predDeaths.starvation++;continue;}
+        kept.push(pr);
+      }
+      predators=kept;
+    }
+
+    // prey reproduction: only sufficiently full
+    const pcells=new Map();
+    for(const a of prey){const k=a.x+","+a.y;if(!pcells.has(k))pcells.set(k,[]);pcells.get(k).push(a)}
+    const newbornPrey=[];
+    for(const arr of pcells.values()){
+      const males=arr.filter(a=>a.sex===1&&a.cooldown===0&&a.hunger<=p.PREYMATE);
+      const females=arr.filter(a=>a.sex===0&&a.cooldown===0&&a.hunger<=p.PREYMATE);
+      if(males.length&&females.length&&Math.random()<p.PREYBP){
+        const father=males[rnd(males.length)],mother=females[rnd(females.length)];
+        const childFear=inheritFear(father,mother,p);
+        newbornPrey.push({
+          id:nextId++,x:mother.x,y:mother.y,homeX:mother.x,homeY:mother.y,sex:sex(),
+          fear:childFear,
+          hunger:0,cooldown:p.PREYCD,state:"mate",age:0,lifespan:sampledLife(p.PREYLIFE)
+        });
+        // Count successful reproductive participation by parental trait.
+        traitBirthParent[father.fear]++;
+        traitBirthParent[mother.fear]++;
+        traitBirthChild[childFear]++;
+        father.cooldown=p.PREYCD;mother.cooldown=p.PREYCD;
+        father.hunger+=15;mother.hunger+=15; // reproduction has resource cost
+      }
+    }
+    prey.push(...newbornPrey);
+
+    // predator reproduction: only sufficiently full
+    const dcells=new Map();
+    for(const a of predators){const k=a.x+","+a.y;if(!dcells.has(k))dcells.set(k,[]);dcells.get(k).push(a)}
+    const newbornPred=[];
+    for(const arr of dcells.values()){
+      const males=arr.filter(a=>a.sex===1&&a.cooldown===0&&a.hunger<=p.PREDMATE);
+      const females=arr.filter(a=>a.sex===0&&a.cooldown===0&&a.hunger<=p.PREDMATE);
+      if(males.length&&females.length&&Math.random()<p.PREDBP){
+        const father=males[rnd(males.length)],mother=females[rnd(females.length)];
+        newbornPred.push({
+          id:nextId++,x:mother.x,y:mother.y,sex:sex(),hunger:0,cooldown:p.PREDCD,age:0,lifespan:sampledLife(p.PREDLIFE),
+          state:"mate",targetId:null,chaseSteps:0,lastSeen:null,searchLeft:0
+        });
+        father.cooldown=p.PREDCD;mother.cooldown=p.PREDCD;
+        father.hunger+=20;mother.hunger+=20;
+      }
+    }
+    predators.push(...newbornPred);
+
+  }
+
+  function macroStep(){
+    const p=P();
+    for(let i=0;i<p.TPS;i++) microTick();
+    stepCount++;
+    record();
+  }
+
+  function record(){
+    const c=Array(11).fill(0);for(const a of prey)c[a.fear]++;
+    const ps={forage:0,mate:0,escape:0,returnHome:0};for(const a of prey)ps[a.state]=(ps[a.state]||0)+1;
+    const ds={hunt:0,chase:0,search:0,mate:0};for(const pr of predators)ds[pr.state]=(ds[pr.state]||0)+1;
+    hist.push({t:stepCount,counts:c.slice(),pred:predators.length,ps,ds});
+    if(hist.length>1500)hist.shift();
+  }
+
+  function drawWorld(){
+    const p=P(),sx=world.width/p.W,sy=world.height/p.H;
+    wctx.clearRect(0,0,world.width,world.height);
+
+    for(const z of foodZones){
+      const frac=z.max?z.food/z.max:0;
+      wctx.globalAlpha=0.08+0.32*frac;wctx.fillStyle="#2ca02c";
+      wctx.beginPath();wctx.arc((z.x+0.5)*sx,(z.y+0.5)*sy,z.r*(sx+sy)/2,0,Math.PI*2);wctx.fill();
+    }
+    wctx.globalAlpha=1;
+
+    for(const a of prey){
+      {
+      const t=a.fear/10;
+      const r=Math.round(127 + (214-127)*t);
+      const g=Math.round(127 + (39-127)*t);
+      const b=Math.round(127 + (40-127)*t);
+      wctx.fillStyle=`rgb(${r},${g},${b})`;
+      }
+      const r=Math.max(1.5,Math.min(sx,sy)*0.32);
+      wctx.beginPath();wctx.arc((a.x+0.5)*sx,(a.y+0.5)*sy,r,0,Math.PI*2);wctx.fill();
+    }
+
+    for(const pr of predators){
+      wctx.fillStyle=pr.state==="chase"?"#000":pr.state==="search"?"#666":"#222";
+      const x=(pr.x+0.5)*sx,y=(pr.y+0.5)*sy,r=Math.max(2,Math.min(sx,sy)*0.5);
+      wctx.fillRect(x-r,y-r,2*r,2*r);
+    }
+  }
+
+  function drawChart(){
+    cctx.clearRect(0,0,chart.width,chart.height);
+
+    // Top: total prey and predator population
+    const pad={l:48,r:16,t:18,b:28};
+    const topH=255, gap=34;
+    const W=chart.width-pad.l-pad.r;
+
+    cctx.strokeStyle="#bbb";
+    cctx.beginPath();
+    cctx.moveTo(pad.l,pad.t);
+    cctx.lineTo(pad.l,pad.t+topH);
+    cctx.lineTo(pad.l+W,pad.t+topH);
+    cctx.stroke();
+
+    const preyTotals=hist.map(d=>d.counts.reduce((a,b)=>a+b,0));
+    const maxY=Math.max(10,...preyTotals,...hist.map(d=>d.pred));
+    const minT=hist.length?hist[0].t:0;
+    const maxT=hist.length?hist[hist.length-1].t:1;
+    const span=Math.max(1,maxT-minT);
+
+    function series(vals,color){
+      cctx.strokeStyle=color;cctx.lineWidth=2;cctx.beginPath();
+      vals.forEach((v,i)=>{
+        const d=hist[i];
+        const x=pad.l+((d.t-minT)/span)*W;
+        const y=pad.t+topH-(v/maxY)*topH;
+        if(i===0)cctx.moveTo(x,y); else cctx.lineTo(x,y);
+      });
+      cctx.stroke();
+    }
+    series(preyTotals,"#555");
+    series(hist.map(d=>d.pred),"#111");
+
+    cctx.fillStyle="#333";cctx.font="12px sans-serif";
+    cctx.fillText("生体総数 / 捕食者",8,18);
+    cctx.fillText(String(Math.round(maxY)),8,pad.t+8);
+    cctx.fillText("0",28,pad.t+topH+4);
+    cctx.fillText("step",pad.l+W-30,pad.t+topH+20);
+
+    // Bottom: current fear distribution 0..10
+    const histTop=pad.t+topH+gap;
+    const histH=chart.height-histTop-36;
+    const latest=hist.length?hist[hist.length-1].counts:Array(11).fill(0);
+    const maxC=Math.max(1,...latest);
+    const barW=W/11;
+
+    cctx.strokeStyle="#bbb";
+    cctx.beginPath();
+    cctx.moveTo(pad.l,histTop);
+    cctx.lineTo(pad.l,histTop+histH);
+    cctx.lineTo(pad.l+W,histTop+histH);
+    cctx.stroke();
+
+    for(let i=0;i<=10;i++){
+      const h=(latest[i]/maxC)*histH;
+      const t=i/10;
+      const r=Math.round(127 + (214-127)*t);
+      const g=Math.round(127 + (39-127)*t);
+      const b=Math.round(127 + (40-127)*t);
+      cctx.fillStyle=`rgb(${r},${g},${b})`;
+      cctx.fillRect(pad.l+i*barW+2,histTop+histH-h,Math.max(1,barW-4),h);
+      cctx.fillStyle="#333";
+      cctx.fillText(String(i),pad.l+i*barW+barW*0.4,histTop+histH+15);
+    }
+    cctx.fillStyle="#333";
+    cctx.fillText("現在の恐怖値分布",8,histTop+12);
+    cctx.fillText(String(maxC),8,histTop+8);
+  }
+
+
+  function drawTraitChart(){
+    const p=P();
+    tctx.clearRect(0,0,traitChart.width,traitChart.height);
+
+    // ---- derive rates ----
+    const birthRate=Array(11).fill(0);
+    const predRate=Array(11).fill(0);
+    const starveRate=Array(11).fill(0);
+    const oldRate=Array(11).fill(0);
+    const totalDeathRate=Array(11).fill(0);
+
+    for(let i=0;i<=10;i++){
+      const e=Math.max(1,traitExposure[i]);
+      birthRate[i]=1000*traitBirthParent[i]/e;
+      predRate[i]=1000*traitDeathPred[i]/e;
+      starveRate[i]=1000*traitDeathStarve[i]/e;
+      oldRate[i]=1000*traitDeathOld[i]/e;
+      totalDeathRate[i]=predRate[i]+starveRate[i]+oldRate[i];
+    }
+
+    // =========================================================
+    // TOP PANEL: reproductive participation vs total mortality
+    // =========================================================
+    const top={l:58,r:18,t:28,b:42,h:225};
+    const topW=traitChart.width-top.l-top.r;
+    const topMax=Math.max(0.1,p.RATEYMAX);
+
+    // axes
+    tctx.strokeStyle="#bbb";
+    tctx.lineWidth=1;
+    tctx.beginPath();
+    tctx.moveTo(top.l,top.t);
+    tctx.lineTo(top.l,top.t+top.h);
+    tctx.lineTo(top.l+topW,top.t+top.h);
+    tctx.stroke();
+
+    // guides and labels
+    tctx.font="11px sans-serif";
+    for(let j=0;j<=4;j++){
+      const value=topMax*j/4;
+      const y=top.t+top.h-(j/4)*top.h;
+      if(j>0){
+        tctx.strokeStyle="#eee";
+        tctx.beginPath();
+        tctx.moveTo(top.l,y);
+        tctx.lineTo(top.l+topW,y);
+        tctx.stroke();
+      }
+      tctx.fillStyle="#555";
+      tctx.fillText(value.toFixed(2),4,y+4);
+    }
+
+    const groupW=topW/11;
+    const innerW=groupW*0.72;
+    const gap=2;
+    const bw=(innerW-gap)/2;
+
+    for(let i=0;i<=10;i++){
+      const gx=top.l+i*groupW+(groupW-innerW)/2;
+
+      const vals=[
+        {v:birthRate[i], color:"#4c78a8"},
+        {v:totalDeathRate[i], color:"#e45756"}
+      ];
+
+      vals.forEach((m,k)=>{
+        const h=(m.v/topMax)*top.h;
+        tctx.fillStyle=m.color;
+        tctx.fillRect(gx+k*(bw+gap),top.t+top.h-h,bw,h);
+      });
+
+      tctx.fillStyle="#333";
+      tctx.fillText(String(i),top.l+i*groupW+groupW/2-3,top.t+top.h+17);
+    }
+
+    tctx.fillStyle="#333";
+    tctx.font="12px sans-serif";
+    tctx.fillText("恐怖値別：繁殖回数と死亡回数",8,16);
+
+    // legend
+    let lx=top.l;
+    const topLegendY=top.t+top.h+35;
+    [
+      ["#4c78a8","親として繁殖した回数"],
+      ["#e45756","死亡回数"]
+    ].forEach(([c,label])=>{
+      tctx.fillStyle=c;
+      tctx.fillRect(lx,topLegendY-9,11,11);
+      tctx.fillStyle="#333";
+      tctx.fillText(label,lx+15,topLegendY);
+      lx+=110;
+    });
+
+    // =========================================================
+    // BOTTOM PANEL: 100% stacked cause-of-death composition
+    // =========================================================
+    const bot={l:58,r:18,t:325,b:42,h:175};
+    const botW=traitChart.width-bot.l-bot.r;
+
+    tctx.strokeStyle="#bbb";
+    tctx.beginPath();
+    tctx.moveTo(bot.l,bot.t);
+    tctx.lineTo(bot.l,bot.t+bot.h);
+    tctx.lineTo(bot.l+botW,bot.t+bot.h);
+    tctx.stroke();
+
+    // 0,25,50,75,100%
+    for(let j=0;j<=4;j++){
+      const pct=25*j;
+      const y=bot.t+bot.h-(j/4)*bot.h;
+      if(j>0){
+        tctx.strokeStyle="#eee";
+        tctx.beginPath();
+        tctx.moveTo(bot.l,y);
+        tctx.lineTo(bot.l+botW,y);
+        tctx.stroke();
+      }
+      tctx.fillStyle="#555";
+      tctx.fillText(pct+"%",15,y+4);
+    }
+
+    const barGroupW=botW/11;
+    const stackW=barGroupW*0.58;
+
+    for(let i=0;i<=10;i++){
+      const deaths=traitDeathPred[i]+traitDeathStarve[i]+traitDeathOld[i];
+      const pPred=deaths?traitDeathPred[i]/deaths:0;
+      const pStarve=deaths?traitDeathStarve[i]/deaths:0;
+      const pOld=deaths?traitDeathOld[i]/deaths:0;
+
+      const x=bot.l+i*barGroupW+(barGroupW-stackW)/2;
+      let y=bot.t+bot.h;
+
+      const segs=[
+        {p:pPred,color:"#e45756"},
+        {p:pStarve,color:"#f2cf5b"},
+        {p:pOld,color:"#8f8f8f"}
+      ];
+
+      for(const s of segs){
+        const h=s.p*bot.h;
+        y-=h;
+        tctx.fillStyle=s.color;
+        tctx.fillRect(x,y,stackW,h);
+      }
+
+      // Empty bar outline if no deaths yet
+      if(deaths===0){
+        tctx.strokeStyle="#ddd";
+        tctx.strokeRect(x,bot.t,stackW,bot.h);
+      }
+
+      tctx.fillStyle="#333";
+      tctx.fillText(String(i),bot.l+i*barGroupW+barGroupW/2-3,bot.t+bot.h+17);
+    }
+
+    tctx.fillStyle="#333";
+    tctx.font="12px sans-serif";
+    tctx.fillText("恐怖値別：死因構成（死亡者中の割合）",8,313);
+
+    // bottom legend
+    lx=bot.l;
+    const botLegendY=traitChart.height-12;
+    [
+      ["#e45756","捕食"],
+      ["#f2cf5b","餓死"],
+      ["#8f8f8f","老衰"]
+    ].forEach(([c,label])=>{
+      tctx.fillStyle=c;
+      tctx.fillRect(lx,botLegendY-9,11,11);
+      tctx.fillStyle="#333";
+      tctx.fillText(label,lx+15,botLegendY);
+      lx+=82;
+    });
+  }
+
+  function drawStats(){
+    const p=P();
+    const c=Array(11).fill(0);for(const a of prey)c[a.fear]++;
+    const ps={forage:0,mate:0,escape:0,returnHome:0};for(const a of prey)ps[a.state]=(ps[a.state]||0)+1;
+    const ds={hunt:0,chase:0,search:0,mate:0};for(const pr of predators)ds[pr.state]=(ds[pr.state]||0)+1;
+    const total=prey.length||1;
+    const meanFear=prey.length ? prey.reduce((s,a)=>s+a.fear,0)/prey.length : 0;
+    const modalFear=c.indexOf(Math.max(...c));
+    const meanHomeRadius=prey.length ? prey.reduce((s,a)=>s+homeRadius(a,p),0)/prey.length : 0;
+
+    stats.innerHTML=`
+      <div><b>Step</b>: ${stepCount}</div><div><b>生体総数</b>: ${prey.length}</div>
+      <div><b>恐怖平均</b>: ${meanFear.toFixed(2)}</div><div><b>最頻恐怖値</b>: ${modalFear}</div>
+      <div><b>平均ホームレンジ半径</b>: ${meanHomeRadius.toFixed(1)}</div>
+      <div><b>恐怖0</b>: ${c[0]} (${(100*c[0]/total).toFixed(1)}%)</div><div><b>恐怖10</b>: ${c[10]} (${(100*c[10]/total).toFixed(1)}%)</div>
+      <div><b>捕食者</b>: ${predators.length}</div><div><b>生体 採餌</b>: ${ps.forage||0}</div>
+      <div><b>生体死因 捕食</b>: ${preyDeaths.predation}</div><div><b>生体死因 餓死</b>: ${preyDeaths.starvation}</div>
+      <div><b>生体死因 老衰</b>: ${preyDeaths.oldAge}</div><div><b>捕食者死因 餓死</b>: ${predDeaths.starvation}</div>
+      <div><b>捕食者死因 老衰</b>: ${predDeaths.oldAge}</div>
+      <div><b>生体 繁殖探索</b>: ${ps.mate||0}</div><div><b>生体 逃走</b>: ${ps.escape||0}</div>
+      <div><b>捕食者 狩猟</b>: ${ds.hunt||0}</div><div><b>捕食者 追跡</b>: ${ds.chase||0}</div>
+      <div><b>捕食者 見失い捜索</b>: ${ds.search||0}</div><div><b>捕食者 繁殖探索</b>: ${ds.mate||0}</div>
+      <div><b>食糧残量</b>: ${Math.round(foodZones.reduce((s,z)=>s+z.food,0))}</div>
+      <div><b>親として繁殖した総回数</b>: ${traitBirthParent.reduce((a,b)=>a+b,0)}</div>
+      <div><b>形質別率</b>: 下段グラフ参照</div>
+    `;
+  }
+
+  function draw(){drawWorld();drawChart();drawTraitChart();drawStats()}
+  function loop(){
+    if(running){const p=P();for(let i=0;i<p.SPF;i++)macroStep();draw()}
+    requestAnimationFrame(loop);
+  }
+
+  startBtn.onclick=()=>running=true;
+  pauseBtn.onclick=()=>running=false;
+  resetBtn.onclick=()=>reset();
+
+  reset();loop();
+})();
+</script>
+</body>
+</html>
